@@ -67,10 +67,13 @@ async def insert_translation_history(
 ) -> dict:
     """Insert a translation into history using Supabase REST API"""
     try:
-        async with httpx.AsyncClient() as client:
+        headers = get_supabase_headers(user_token)
+        headers["Prefer"] = "return=representation"  # Required to get back the inserted row
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
                 f"{SUPABASE_REST_URL}/translation_history",
-                headers=get_supabase_headers(user_token),
+                headers=headers,
                 json={
                     "user_id": user_id,
                     "original_text": original_text,
@@ -80,10 +83,14 @@ async def insert_translation_history(
                 }
             )
             
+            print(f"📝 Insert status: {response.status_code}")
+            print(f"📝 Insert response: {response.text[:200]}")
+            
             if response.status_code in [200, 201]:
-                return response.json()
+                data = response.json()
+                return data if isinstance(data, list) else [data]
             else:
-                raise Exception(f"Failed to insert: {response.status_code} - {response.text}")
+                raise Exception(f"Insert failed: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"❌ Insert error: {e}")
         raise
@@ -96,8 +103,7 @@ async def get_translation_history(
 ) -> list:
     """Get translation history using Supabase REST API"""
     try:
-        async with httpx.AsyncClient() as client:
-            # Supabase REST API query
+        async with httpx.AsyncClient(timeout=15.0) as client:
             url = f"{SUPABASE_REST_URL}/translation_history"
             headers = get_supabase_headers(user_token)
             params = {
@@ -108,18 +114,19 @@ async def get_translation_history(
                 "select": "*"
             }
             
-            print(f"📋 Fetching history: {url}")
-            print(f"📋 Params: {params}")
+            print(f"📋 Fetching history for user: {user_id}")
             
             response = await client.get(url, headers=headers, params=params)
             
             print(f"📋 Response status: {response.status_code}")
-            print(f"📋 Response body: {response.text[:200]}")
             
             if response.status_code == 200:
                 return response.json()
             else:
-                raise Exception(f"Failed to fetch: {response.status_code} - {response.text}")
+                raise Exception(f"Fetch failed: {response.status_code} - {response.text}")
+    except httpx.TimeoutException:
+        print("❌ History fetch timed out")
+        raise Exception("Request timed out")
     except Exception as e:
         print(f"❌ Fetch error: {e}")
         raise
@@ -131,7 +138,7 @@ async def delete_translation_history(
 ) -> bool:
     """Delete a translation from history using Supabase REST API"""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.delete(
                 f"{SUPABASE_REST_URL}/translation_history",
                 headers=get_supabase_headers(user_token),
@@ -144,7 +151,7 @@ async def delete_translation_history(
             if response.status_code in [200, 204]:
                 return True
             else:
-                raise Exception(f"Failed to delete: {response.status_code} - {response.text}")
+                raise Exception(f"Delete failed: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"❌ Delete error: {e}")
         raise

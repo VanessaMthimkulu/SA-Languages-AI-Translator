@@ -85,11 +85,10 @@ export default function HistoryPanel({ session, refreshTrigger }: HistoryPanelPr
     fetchHistory();
   }, [page]);
 
-  // Refresh when trigger changes
+  // Refresh when trigger changes (new translation saved)
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
       setPage(0);
-      fetchHistory();
     }
   }, [refreshTrigger]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { translateText, generateSpeech, saveHistory } from "@/lib/api";
+import { translateText, saveHistory } from "@/lib/api";
 
 /**
  * Translation panel with input, language selection, and output
@@ -83,50 +83,66 @@ export default function TranslatorPanel({ session, onTranslationSaved }: Transla
     }
   };
 
-  // Handle audio generation separately
-  const handleGenerateAudio = async () => {
+  // Handle audio generation using browser Web Speech API
+  const handleGenerateAudio = () => {
     if (!translatedText) {
       setError("Please translate text first");
       return;
     }
 
-    setAudioLoading(true);
-    setError("");
-
     try {
-      const token = session?.access_token;
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
 
-      if (!token) {
-        throw new Error("Not authenticated");
-      }
-
-      const ttsResult = await generateSpeech(
-        translatedText,
-        selectedLanguage,
-        token
-      );
+      const utterance = new SpeechSynthesisUtterance(translatedText);
       
-      setAudioData(ttsResult.audio);
+      // Map language codes to BCP 47 language tags for Web Speech API
+      const langMap: Record<string, string> = {
+        isizulu: "zu-ZA",
+        isixhosa: "xh-ZA",
+        sesotho: "st-ZA",
+        setswana: "tn-ZA",
+        sepedi: "nso-ZA",
+        siswati: "ss-ZA",
+        tshivenda: "ve-ZA",
+        xitsonga: "ts-ZA",
+        afrikaans: "af-ZA",
+      };
+
+      utterance.lang = langMap[selectedLanguage] || "af-ZA";
+      utterance.rate = 0.85;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      utterance.onstart = () => {
+        setAudioLoading(false);
+        setAudioData("playing");
+      };
+
+      utterance.onend = () => {
+        setAudioData(null);
+      };
+
+      utterance.onerror = (e) => {
+        console.error("Speech error:", e);
+        setError("Audio playback failed. Your browser may not support this language.");
+        setAudioData(null);
+        setAudioLoading(false);
+      };
+
+      setAudioLoading(true);
+      window.speechSynthesis.speak(utterance);
 
     } catch (err: any) {
-      console.error("TTS error:", err);
-      setError(err.response?.data?.detail || err.message || "Audio generation failed");
-    } finally {
+      setError("Audio not supported in this browser");
       setAudioLoading(false);
     }
   };
 
-  // Play audio from base64 data
-  const playAudio = () => {
-    if (!audioData) return;
-
-    try {
-      const audio = new Audio(`data:audio/mpeg;base64,${audioData}`);
-      audio.play();
-    } catch (err) {
-      console.error("Audio playback error:", err);
-      setError("Failed to play audio");
-    }
+  // Stop audio playback
+  const stopAudio = () => {
+    window.speechSynthesis.cancel();
+    setAudioData(null);
   };
 
   return (
@@ -225,40 +241,29 @@ export default function TranslatorPanel({ session, onTranslationSaved }: Transla
               </div>
 
               <div className="flex gap-3">
-                {/* Generate Audio Button */}
+                {/* Generate/Stop Audio Button */}
                 <button
-                  onClick={handleGenerateAudio}
+                  onClick={audioData === "playing" ? stopAudio : handleGenerateAudio}
                   disabled={audioLoading}
                   className="flex-1 bg-sa-red text-white py-3 rounded-lg font-medium hover:bg-sa-red/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
                 >
                   {audioLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Generating...
+                      Loading...
+                    </>
+                  ) : audioData === "playing" ? (
+                    <>
+                      <span>⏹</span>
+                      Stop Audio
                     </>
                   ) : (
                     <>
                       <span>🎵</span>
-                      Generate Audio
+                      Speak Translation
                     </>
                   )}
                 </button>
-
-                {/* Play Audio Button */}
-                {audioData && (
-                  <button
-                    onClick={playAudio}
-                    className="bg-white p-3 rounded-lg shadow-md hover:shadow-lg transition border-2 border-sa-yellow hover:bg-sa-yellow/10"
-                  >
-                    <svg
-                      className="w-6 h-6 text-sa-green"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                    </svg>
-                  </button>
-                )}
               </div>
             </div>
 
