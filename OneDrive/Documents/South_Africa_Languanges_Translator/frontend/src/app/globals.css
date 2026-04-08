@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sa-red: #E03C31;
+  --sa-blue: #001489;
+  --sa-green: #007A4D;
+  --sa-yellow: #FFB81C;
+}
+
+body {
+  background: linear-gradient(135deg, #007A4D 0%, #001489 100%);
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-sa {
+    background: linear-gradient(135deg, #007A4D 0%, #FFB81C 50%, #E03C31 100%);
+  }
+  
+  .gradient-sa-blue {
+    background: linear-gradient(135deg, #001489 0%, #007A4D 100%);
+  }
+}
